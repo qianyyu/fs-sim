@@ -1,13 +1,6 @@
 # Assignment#3 - fs-sim
 fs-sim(aka CMPUT 379 Assignment 3) is a program in C++ which simulates a trivial file system. This program mounts a file system that resides on a virtual disk (i.e., a file acting as the disk) and checks if it is consistent. It subsequently reads commands from an input file and executes them by simulating the file system operations.
-### Information
-- Assignment:           3
-- Due Date:             December 6, 2019
-- Name:                 Qian Yu
-- CCID:                 qian6
-- Student ID:           1546189
-- Instructor:           Omid Ardakanian
-- Lab Section:          Tuesday 1700 - 1950
+
 
 
 ### Usage
