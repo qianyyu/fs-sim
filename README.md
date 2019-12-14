@@ -10,14 +10,6 @@ make
 ./fs <your_input_file> > stdout 2>stderr
 ```
 
-
-
-### Used System Calls
-- `pread()`: `fs_mount()`,`fs_read()`,`fs_defrag()`,`fs_resize()`
-- `pwrite()`: `update()`,`fs_write()`,`fs_defrag()`,`fs_resize()`
-
-
-
 ### Used Global Variable
 - Super_block: a pointer to global superblock, it will be changed only if we mount a valid disk.
 - gfiledesc: a global file descriptor, it will be changed only if we mount a valid disk.
