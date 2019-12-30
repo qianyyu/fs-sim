@@ -10,6 +10,8 @@
 
 // C++ IO
 #include <iostream>
+#include <algorithm>
+
 
 // Open system call:
 #include <sys/types.h>
@@ -34,7 +36,8 @@ using namespace std;
 
 int global = 1;
 
-
+/* Reference:
+        CMPUT 379 Assignment1(Lab TAs and/or Instructor) */
 vector<string> tokenize(const string &str, const char *delim) {
     char* cstr = new char[str.size() + 1];
     strcpy(cstr, str.c_str());
@@ -52,7 +55,7 @@ vector<string> tokenize(const string &str, const char *delim) {
 
 
 
-int main(int argc, char** argv){
+int main(int argc, char* argv[]){
     if(argc != 2){
         cerr << "Usage: ./fs <input_file>"<< endl;
         exit(1);
@@ -74,6 +77,7 @@ int main(int argc, char** argv){
         if(tokens.size()==0)
             continue;
         char tag = command[0];
+
         switch(tag){
             // Mount the file system residing on the disk
             case 'M':{
@@ -168,7 +172,7 @@ int main(int argc, char** argv){
                 auto end = command.begin()+1;
                 while((*end)==' ')
                     end++;
-                command.erase(command.begin()+0,end);
+                command.erase(command.begin(),end);
                 if(command.size()>1024){
                     cerr << "Command Error: "<< input_file_name <<", " << line << endl;
                     continue;
@@ -227,15 +231,6 @@ int main(int argc, char** argv){
                 fs_cd((char*)dir_name.c_str()); 
                 break;
             }
-            case 'd':{
-                print_list();
-                break;
-            }
-            case 'I':{
-                int i = atoi(tokens.at(1).c_str());
-                print_inode(i);
-                break;
-            }
             default:{
                 cerr << "Command Error: "<< input_file_name <<", " << line << endl;
                 break;
@@ -244,5 +239,6 @@ int main(int argc, char** argv){
         tokens.clear();
     }
     myfile.close();
+    fs_free();
     return 0;
 }
