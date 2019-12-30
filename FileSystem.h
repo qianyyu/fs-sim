@@ -42,6 +42,7 @@ void fs_ls(void);
 void fs_resize(char name[5], int new_size);
 void fs_defrag(void);
 void fs_cd(char name[5]);
+void fs_free();
 
 
 // debug
