@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <algorithm>
 
 //for the open() permission flags
 #include <sys/stat.h>
@@ -28,7 +29,6 @@
 // My Library
 #include "FileSystem.h"
 #include "check.h"
-#include "helper.h"
 
 using namespace std;
 
@@ -72,7 +72,78 @@ uint8_t current_working_directory = 127;
 unordered_map<uint8_t,vector<uint8_t>> folder; // key: Folder ID, Value: List of File/Directory Inode ID
 uint8_t buffer[1024];
 
-// Last Modified: Nov 15
+
+
+/* Debug Functions: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+/* Debug Functions: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+/* Debug Functions: >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+
+void printbincharpad(char c){
+    for (int i = 7; i >= 0; --i){
+        putchar( (c & (1 << i)) ? '1' : '0' );
+    }
+}
+
+void print_list(){
+    cout <<" --------------------------" << endl;
+    for (int i = 0; i < 16; ++i){
+         printbincharpad(gsb->free_block_list[i]);
+         cout << endl;
+     }    
+    cout <<" --------------------------" << endl;   
+}
+
+
+void print_inode(int i){
+     printbincharpad(gsb->inode[i].name[0]);
+     printbincharpad(gsb->inode[i].name[1]);
+     printbincharpad(gsb->inode[i].name[2]);
+     printbincharpad(gsb->inode[i].name[3]);
+     printbincharpad(gsb->inode[i].name[4]);
+     printbincharpad(gsb->inode[i].used_size);
+     printbincharpad(gsb->inode[i].start_block);
+     printbincharpad(gsb->inode[i].dir_parent);
+}
+/*
+void unique_name(char *str){
+    set<string> name_list;
+    for (int i = 16; i < 1024; i+=8){
+        int index = i;
+        string name = "";
+        while(str[index]!='\0' && (index-i)<=5){
+            name += str[index];
+            index++;
+        }
+        name_list.insert(name);
+    }
+}
+*/
+
+
+/* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Debug Functions*/
+/* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Debug Functions*/
+/* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Debug Functions*/
+
+
+
+
+
+
+/* Helper Functions  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+/* Helper Functions  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+/* Helper Functions  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>*/
+
+
+/**
+ * Parameters:
+ *   - str: the string you want to strip space
+ *
+ * Return Value:
+ *   - str: the string which has been striped
+ *
+ * Description:
+ *     convert "  aaa  " to "aaa" 
+ */
 char* strip_space(char *str){
     char *end,*left,*right;
     int len;
@@ -91,30 +162,19 @@ char* strip_space(char *str){
 }
 
 
-
-void printbincharpad(char c){
-    for (int i = 7; i >= 0; --i){
-        putchar( (c & (1 << i)) ? '1' : '0' );
-    }
-}
-
-
-/*
-void unique_name(char *str){
-    set<string> name_list;
-    for (int i = 16; i < 1024; i+=8){
-        int index = i;
-        string name = "";
-        while(str[index]!='\0' && (index-i)<=5){
-            name += str[index];
-            index++;
-        }
-        name_list.insert(name);
-    }
-}
-*/
-
+/**
+ * Parameters:
+ *   - name: the name you want to check
+ *
+ * Return Value:
+ *   - true: if there is no same name, false otherwise
+ *
+ * Description:
+ *     Check is there a same name
+ */
 bool check_same_name(char* name){
+    if(strcmp(".",name)==0 ||strcmp("..",name)==0 )
+        return false;
     for (int i=0; i <= 125 ; ++i){
         Inode inode = (gsb->inode)[i];
         bitset<40> bit_name_inode = ToBits_name((unsigned char* )inode.name);
@@ -131,6 +191,16 @@ bool check_same_name(char* name){
 }
 
 
+/**
+ * Parameters:
+ *   - str: adapter, string to superblock
+ *
+ * Return Value:
+ *   - the superblock you converted 
+ *
+ * Description:
+ *     Convert a string to superblock
+ */
 Super_block *convert_to_superblock(char *str){
     Super_block *superblock = new Super_block;
     strncpy(superblock->free_block_list,str,16);
@@ -154,10 +224,17 @@ Super_block *convert_to_superblock(char *str){
 }
 
 
-
-int check_available_blocks(int size){
-    bitset<128> space_list = ToBits_free_block_list((unsigned char* )gsb->free_block_list);
-
+/**
+ * Parameters:
+ *   - size: The size you want to allocate
+ *
+ * Return Value:
+ *   - The index of the first availble start_block
+ *
+ * Description:
+ *     find the index of the first availble start_block
+ */
+int check_available_blocks(int size,bitset<128> space_list){
     int cur_size = 0;
     for (int i = 127; i >=0; --i){
         if(!space_list.test(i)){
@@ -171,7 +248,16 @@ int check_available_blocks(int size){
     return -1;
 }
 
-
+/**
+ * Parameters:
+ *   - space_list: free space list
+ *
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     Write the space list into global variable gsb(global super block)
+ */
 void update_bitset_to_space_list(bitset<128> space_list){
 
     for (int i = 0; i <=15; i++){
@@ -179,15 +265,30 @@ void update_bitset_to_space_list(bitset<128> space_list){
         unsigned char c = static_cast<unsigned char>( space_list2.to_ulong() );
         gsb->free_block_list[i] = c;
     }
+
     // for (int i = 0; i < 16; ++i){
     //     printbincharpad(gsb->free_block_list[i]);
     //     cout << endl;
     // }    
     // cout <<" --------------------------" << endl;
-
-
 }
 
+
+/**
+ * Parameters:
+ *   - left:  Want to make sure that bits in [left,right] are all 0
+ *   - right: Want to make sure that bits in [left,right] are all 0
+ *   - b   :  free space list
+ *
+ * Return Value:
+ *   - boolean value: 
+ *          true  <==>   if we can increase the size without change start_block
+ *          false <==>   if we cannot
+ *
+ * Description:
+ *     update function is to update the first kilobyte of the disk file
+ * (which is the address of superblock)
+ */
 bool check_increasing(int left, int right, bitset<128>*b){
     bitset<128> space_list = *b;
 
@@ -211,26 +312,17 @@ bool check_increasing(int left, int right, bitset<128>*b){
 
 
 
-
-void print_list(){
-    cout <<" --------------------------" << endl;
-    for (int i = 0; i < 16; ++i){
-         printbincharpad(gsb->free_block_list[i]);
-         cout << endl;
-     }    
-    cout <<" --------------------------" << endl;   
-}
-
-void print_inode(int i){
-     printbincharpad(gsb->inode[i].name[0]);
-     printbincharpad(gsb->inode[i].name[1]);
-     printbincharpad(gsb->inode[i].name[2]);
-     printbincharpad(gsb->inode[i].name[3]);
-     printbincharpad(gsb->inode[i].name[4]);
-     printbincharpad(gsb->inode[i].used_size);
-     printbincharpad(gsb->inode[i].start_block);
-     printbincharpad(gsb->inode[i].dir_parent);
-}
+/**
+ * Parameters:
+ *   - None
+ *
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     update function is to update the first kilobyte of the disk file
+ * (which is the address of superblock)
+ */
 
 void update(){
     char buf[1024];
@@ -248,11 +340,16 @@ void update(){
         buf[i+6] = (char) inode.start_block;
         buf[i+7] = (char) inode.dir_parent;
     }
-    pwrite(gfiledesc, buf, 1024,0);
+    ssize_t ERROR_INDICATOR;
+    ERROR_INDICATOR = pwrite(gfiledesc, buf, 1024,0);
+    if(ERROR_INDICATOR == -1){
+            perror("");
+    }
 
 }
 
-
+// This function convert superblock to a map structure.
+// folder is a map from uint8_t(directory_id) to list of uint8_t(list of files or directory) 
 void init_map(){
     uint8_t current_directory = 127;
     vector<uint8_t> directory_list;
@@ -285,19 +382,95 @@ void init_map(){
 }
 
 
+
+// Converting id to directory/file name
 char* id_to_name(uint8_t id){
     return gsb->inode[(unsigned)id].name;
 }
 
-// Mounts the file system residing on the virtual disk with the specified name. 
-// The mounting process involves loading the superblock of the file system,
-// We say a file system is incosistent when an aribitrary number of bits 
-// in its superblock are changed accidentally.
+
+/**
+ * Parameters:
+ *   - new_block: the index of new start_block (The block you want to move to)
+ *   - old_block: the index of old start_block
+ *   - space_list: free space list
+ *
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     This function is a helper function for defragmentation
+ * Move every inode to first available block.
+ */
+void move_forward(int new_block,int old_block,bitset<128>* space_list){
+    Inode *inode = nullptr;
+    ssize_t ERROR_INDICATOR;
+    for (int i = 0; i <= 125; ++i){
+        int old_start_block = gsb->inode[(uint8_t)i].start_block;
+        if( old_start_block == old_block){
+            inode  = &(gsb->inode[(uint8_t)i]);
+            break;
+        }
+    }
+    inode->start_block = new_block;
+    int size = inode->used_size - 128;
+    char zero_buff[1024];
+    memset(zero_buff,0,1024);
+    for (int i = old_block; i < old_block + size; ++i){
+        char temp_buff[1024];
+        int old_space_list_index = 127 - i;
+        int new_space_list_index = 127 - new_block;
+
+        ERROR_INDICATOR = pread(gfiledesc, temp_buff, 1024, 1024*i);
+        if(ERROR_INDICATOR == -1){
+            perror("");
+        }
+
+        ERROR_INDICATOR = pwrite(gfiledesc, zero_buff, 1024, 1024*i);
+        if(ERROR_INDICATOR == -1){
+            perror("");
+        }
+        (*space_list).reset(old_space_list_index);
+
+        ERROR_INDICATOR = pwrite(gfiledesc, temp_buff, 1024, 1024*new_block++);
+        if(ERROR_INDICATOR == -1){
+            perror("");
+        }
+        (*space_list).set(new_space_list_index);
+    }
+
+}
+
+/* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Helper Functions*/
+/* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Helper Functions*/
+/* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Helper Functions*/
+
+
+void fs_free(){
+    delete gsb;
+}
+
+
+
+/**
+ * Parameters:
+ *   - new_disk_name: the name of new disk
+ *
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     Mounts the file system residing on the virtual disk with the specified name. 
+ * The mounting process involves loading the superblock of the file system,
+ * We say a file system is incosistent when an aribitrary number of bits 
+ * in its superblock are changed accidentally.
+ */
+
 void fs_mount(char *new_disk_name){  
     char* name = strip_space(new_disk_name);
     int filedesc = open(name,O_RDWR, S_IRWXU | S_IRWXG | S_IRWXO);
     char buf[1024];
-    ssize_t bytes;
+    ssize_t ERROR_INDICATOR;
 
     // Failure
     if(filedesc<0){
@@ -313,7 +486,10 @@ void fs_mount(char *new_disk_name){
     }
 
     // SuperBlock
-    bytes = pread(filedesc,buf,1024,0);
+    ERROR_INDICATOR = pread(filedesc,buf,1024,0);
+    if(ERROR_INDICATOR == -1){
+        perror("");
+    }
     Super_block *sb = convert_to_superblock(buf);
 
     // for (int i = 0; i < 16; ++i){
@@ -322,16 +498,30 @@ void fs_mount(char *new_disk_name){
     // }    
     
     if(check_all(*sb,new_disk_name)){
+        delete gsb;
         gsb = sb;
         gfiledesc = filedesc;
         strcpy(disk_name,new_disk_name);
         current_working_directory = 127;
         init_map();
     }
+    else{
+        delete sb;
+    }
 }
 
+
 /**
- * Creates a new file or directory in the current working directory with the given name and the given number of blocks
+ * Parameters:
+ *   - name: the name of filre/directory the user wants to create
+ *   - size: 0                <==> directory
+ *           other numbers    <==> Size of a file
+ *
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     Creates a new file or directory in the current working directory with the given name and the given number of blocks
  * and store the attributes in the first available inode.
  * A size of zero means that the user is creating a directory.
  * If no inode is availablee, you must print the following error to stderr.
@@ -381,10 +571,10 @@ void fs_create(char name[5], int size){
     else{
         // update free_block_list and start_index
         int start_index;
-        if((start_index = check_available_blocks(size))!=-1){
-            inode->start_block     =  start_index;
-            bitset<128> space_list =  ToBits_free_block_list((unsigned char* )gsb->free_block_list);
+        bitset<128> space_list =  ToBits_free_block_list((unsigned char* )gsb->free_block_list);
 
+        if((start_index = check_available_blocks(size,space_list))!=-1){
+            inode->start_block     =  start_index;
             for (int i = 127 - start_index; i > 127 - start_index - size; --i){
                 space_list.set(i);
             }
@@ -406,10 +596,21 @@ void fs_create(char name[5], int size){
 }
 
 
-// Deletes the file or directory with the given name in the current working directory. If the name represents a
-// directory, your program should recursively delete all files and directories within this directory. For every file
-// or directory that is deleted, you must zero out the corresponding inode and data block. Do not shift other
-// inodes or file data blocks after deletion.
+/*
+ * Parameters:
+ *   - name: the name of filre/directory the user wants to delete
+ *
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     Deletes the file or directory with the given name in the current working directory. 
+ * If the name represents a directory, your program should recursively delete all files 
+ * and directories within this directory. For every file or directory that is deleted, 
+ * you must zero out the corresponding inode and data block. Do not shift other
+ * inodes or file data blocks after deletion.
+*/
+
 void fs_delete(char name[5]){
     if(gsb == nullptr){
         cerr << "Error: No file system is mounted" << endl;
@@ -418,6 +619,8 @@ void fs_delete(char name[5]){
     char name2[6];
     strncpy(name2,name,5);
     name2[5] = 0;
+
+    ssize_t ERROR_INDICATOR;
 
     vector<uint8_t> current_folder = folder[current_working_directory];
 
@@ -448,7 +651,10 @@ void fs_delete(char name[5]){
 
             bitset<128> space_list = ToBits_free_block_list((unsigned char* )gsb->free_block_list);
             for (int i = start_block; i < start_block + size; ++i){
-                pwrite(gfiledesc, temp_buff, 1024, 1024*i);
+                ERROR_INDICATOR = pwrite(gfiledesc, temp_buff, 1024, 1024*i);
+                if(ERROR_INDICATOR == -1){
+                            perror("");
+                } 
                 int list_index = 127 - i;
                 space_list.reset(list_index);
             }
@@ -476,8 +682,21 @@ void fs_delete(char name[5]){
 }
 
 
-// Opens the file with the given name and reads the block num-th block of the file into the buffer. If no such
-// file exists or the given name corresponds to a directory under the current working directory, 
+/*
+ * Parameters:
+ *   - name: the name of inode user wants to read
+ *   - block_num: the index of block user wants to read
+
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     Opens the file with the given name and reads the block num-th block of the 
+ * file into the buffer. If no such file exists or the given name corresponds to a
+ * directory under the current working directory, 
+ */
+
+// 
 void fs_read(char name[5], int block_num){
     if(gsb == nullptr){
         cerr << "Error: No file system is mounted" << endl;
@@ -489,7 +708,6 @@ void fs_read(char name[5], int block_num){
         cerr << "Error: "<< name <<" does not have block "<< block_num << endl;
         return;
     }
-
 
     // Convert name to c_string
     char name2[6];
@@ -518,7 +736,11 @@ void fs_read(char name[5], int block_num){
             int index = (int) inode.start_block;
             index += block_num;
 
-            pread(gfiledesc, buffer, 1024, 1024*index);
+            ssize_t ERROR_INDICATOR;
+            ERROR_INDICATOR = pread(gfiledesc, buffer, 1024, 1024*index);
+            if(ERROR_INDICATOR == -1){
+                perror("");
+            }
             break;
         }
     }
@@ -529,6 +751,21 @@ void fs_read(char name[5], int block_num){
         return;
     }
 }
+
+
+/*
+ * Parameters:
+ *   - name: the name of inode user wants to write in
+ *   - block_num: the index of block user wants to write in
+ *
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     Opens the file with the given name and writes the content 
+ * of the buffer to the block num-th block of the file.
+*/
+
 void fs_write(char name[5], int block_num){
     if(gsb == nullptr){
         cerr << "Error: No file system is mounted" << endl;
@@ -544,6 +781,7 @@ void fs_write(char name[5], int block_num){
     char name2[6];
     strncpy(name2,name,5);
     name2[5] = 0;
+    ssize_t ERROR_INDICATOR;
 
     vector<uint8_t> current_folder = folder[current_working_directory];
     bool unfind = true;
@@ -566,7 +804,11 @@ void fs_write(char name[5], int block_num){
             unfind = false;
             int index = (int)inode.start_block;
             index += block_num;
-            pwrite(gfiledesc, buffer, 1024, 1024*index);
+
+            ERROR_INDICATOR = pwrite(gfiledesc, buffer, 1024, 1024*index);
+            if(ERROR_INDICATOR == -1){
+                perror("");
+            }    
             break;
         }
     }
@@ -578,6 +820,18 @@ void fs_write(char name[5], int block_num){
     }
 }
 
+/*
+ * Parameters:
+ *   - buff: 1-kb string, pass it to global variable buffer.
+ *
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     Flushes the buffer by setting it to zero and writes the new bytes into the buffer. 
+ * No errors must be handled in this function.
+*/
+
 void fs_buff(char buff[1024]){
     if(gsb == nullptr){
         cerr << "Error: No file system is mounted" << endl;
@@ -585,11 +839,26 @@ void fs_buff(char buff[1024]){
     }
     memset(buffer,0,1024);
 
-    for (int i = 0; i < strlen(buff); ++i){
+    for (size_t i = 0; i < strlen(buff); ++i){
         buffer[i] = buff[i];
     }
 }
 
+
+/*
+ * Parameters:
+ *   - None
+ *
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     Lists all files and directories that exist in the current directory, including special directories 
+ * . and .. which represent the current working directory and the parent directory of the current working 
+ * directory, respectively. You must print the result to stdout. Always print . and .. as the first 
+ * and second rows 5 of the result, respectively, and then all files and directories according to the
+ * indices of their corresponding inodes.
+*/
 
 void fs_ls(void){
     if(gsb == nullptr){
@@ -638,7 +907,22 @@ void fs_ls(void){
 }
 
 
-
+/*
+ * Parameters:
+ *   - name:
+ *   - new_size: 
+ *
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     Changes the size of the file with the given name to new size.
+ *  1. If the new size is greater than the current size of the file, 
+ *     you need to allocated more blocks to this file.
+ *  2. If the new size is smaller than the current size, 
+ *     then delete and zero out blocks from the tail of the block 
+ *     equence allocated to this file.
+*/
 void fs_resize(char name[5], int new_size){
     if(gsb == nullptr){
         cerr << "Error: No file system is mounted" << endl;
@@ -647,6 +931,8 @@ void fs_resize(char name[5], int new_size){
     char name2[6];
     strncpy(name2,name,5);
     name2[5] = 0;
+    ssize_t ERROR_INDICATOR;
+
 
     vector<uint8_t> current_folder = folder[current_working_directory];
 
@@ -670,14 +956,18 @@ void fs_resize(char name[5], int new_size){
                 // if there are space in the following block
                 // left: start_index + old_size
                 // right: start_index + old_size + new_size 
-                if(check_increasing(start_index+old_size,start_index+new_size,&space_list)){
+                if(start_index+new_size<=127 && check_increasing(start_index+old_size,start_index+new_size,&space_list)){
                     ;
                 }
                 // if there are not enough space in the following block
                 // rebase the inode
                 else{
                     int new_index;
-                    if((new_index = check_available_blocks(new_size)) != -1){
+                    for (int i = 127-start_index; i > 127-start_index-old_size; --i){
+                        space_list.reset(i);
+                    }
+                    
+                    if((new_index = check_available_blocks(new_size,space_list)) != -1){
                         inode->start_block     =  new_index;
                     }
                     else{
@@ -688,14 +978,22 @@ void fs_resize(char name[5], int new_size){
                     int block_index_right = new_index;
                     int index2 = 127 - new_index;
                     for (int i = 127 - start_index; i > 127 - start_index - old_size; --i){
-                        space_list.reset(i);
                         space_list.set(index2--);
                         char zero_buff[1024];
                         memset(zero_buff,0,1024);
                         char temp_buff[1024];
-                        pread(gfiledesc,temp_buff,1024,1024*block_index_left++);
-                        pwrite(gfiledesc,zero_buff,1024,1024*block_index_left++);
-                        pwrite(gfiledesc,temp_buff,1024,1024*block_index_right++);
+                        ERROR_INDICATOR = pread(gfiledesc,temp_buff,1024,1024*block_index_left++);
+                        if(ERROR_INDICATOR == -1){
+                            perror("");
+                        }
+                        ERROR_INDICATOR = pwrite(gfiledesc,zero_buff,1024,1024*block_index_left++);
+                        if(ERROR_INDICATOR == -1){
+                            perror("");
+                        }    
+                        ERROR_INDICATOR = pwrite(gfiledesc,temp_buff,1024,1024*block_index_right++);
+                        if(ERROR_INDICATOR == -1){
+                            perror("");
+                        }                    
                     }
 
                     for (int i = 127 - new_index - old_size; i > 127 -  new_index - new_size; --i){
@@ -710,7 +1008,11 @@ void fs_resize(char name[5], int new_size){
                 for (int i = 127 - start_index - new_size; i > 127 - start_index - old_size; --i){
                         char temp_buff[1024];
                         memset(temp_buff,0,1024);
-                        pwrite(gfiledesc,temp_buff,1024,1024*index++);
+
+                        ERROR_INDICATOR = pwrite(gfiledesc,temp_buff,1024,1024*index++);
+                        if(ERROR_INDICATOR == -1){
+                            perror("");
+                        }
                         space_list.reset(i);
                     }
             }
@@ -731,43 +1033,18 @@ void fs_resize(char name[5], int new_size){
 
 
 
-
-void move_forward(int new_block,int old_block,bitset<128>* space_list){
-    Inode *inode = nullptr;
-    for (int i = 0; i <= 125; ++i){
-        int old_start_block = gsb->inode[(uint8_t)i].start_block;
-        if( old_start_block == old_block){
-            inode  = &(gsb->inode[(uint8_t)i]);
-            break;
-        }
-    }
-    inode->start_block = new_block;
-    int size = inode->used_size - 128;
-    char zero_buff[1024];
-    memset(zero_buff,0,1024);
-    for (int i = old_block; i < old_block + size; ++i){
-        char temp_buff[1024];
-        int old_space_list_index = 127 - i;
-        int new_space_list_index = 127 - new_block;
-
-        pread(gfiledesc, temp_buff, 1024, 1024*i);
-        pwrite(gfiledesc, zero_buff, 1024, 1024*i);
-        (*space_list).reset(old_space_list_index);
-
-        pwrite(gfiledesc, temp_buff, 1024, 1024*new_block++);
-        (*space_list).set(new_space_list_index);
-    }
-
-}
-
-
-
-
 /*
- * Re-organizes the file blocks such that there is no free block between the used blocks
- * and between the superblock and the used blocks
- * To this end, starting with the file that has the smallest start block
- * the start block of every file must be moved over to the smallest numbered data block that is free
+ * Parameters:
+ *   - None
+ *
+ * Return Value:
+ *   - None
+ * 
+ * Description:
+ *     Re-organizes the file blocks such that there is no free block between the used blocks
+ * and between the superblock and the used blocks To this end, starting with the file that 
+ * has the smallest start block the start block of every file must be moved over to the
+ * smallest numbered data block that is free
 */
 void fs_defrag(void){
     if(gsb == nullptr){
@@ -797,11 +1074,18 @@ void fs_defrag(void){
 
 
 /*
- * Changes the current working directory to a directory with the specified name
+ * Parameters:
+ *   - name: the name specifiy a directory name the user wants to go to.
+ *
+ * Return Value:
+ *   - None
+ *
+ * Description:
+ *     Changes the current working directory to a directory with the specified name
  * in the current working directory. This directory can be ., .., or any directory 
  * the user created on the disk. If the specified directory does
  * You can assume that the given name has no slash at the end.
-*/
+ */
 void fs_cd(char name[5]){
     if(gsb == nullptr){
         cerr << "Error: No file system is mounted" << endl;
@@ -843,9 +1127,9 @@ void fs_cd(char name[5]){
         }
     }
 
-    // Error Handling
-    // not exist in the current working directory (i.e., the name does not exist or it points to a file rather than a
-    // directory), print the following error message to stderr:
+    // Error Handling:
+    //     Not exist in the current working directory (i.e., the name does not exist or it points to a file rather than a
+    //     directory), print the following error message to stderr:
     //          Error: Directory <directory name> does not exist
     if(unfind){
         cerr <<"Error: Directory " << name << " does not exist"<< endl;
