@@ -21,16 +21,14 @@ make
 
 
 ### Testing Choices
-- Before I get started, I aware that this assignment will be quite long. Thus, I want to make sure that every function
-I wrote is correct.
-So I don't need to worry about the correctness of other functions when I am writing a new function.
-- When I complete a function, I want to test them immediately. Thus, I try to write `fs_mount()` and `fs_create()` first.
- (If I write some functions like `fs_read()` or `fs_delete()` at the begining, I cannot test them without  
- `fs_mount()` and `fs_create()` )
-- Next, I try to implement `fs_resize()`, `fs_delete()` and `fs_defrag()`. All of those functions are related to superblock a lot. So I print every change of superblock to stdout, and It will be very clear if I get something wrong. In this process, I also wrote  some testing function `print_list()` and `print_inode()` to print every bit of superblock.
+
+- I want to test every function I wrote immediately. Thus, I try to write `fs_mount()` and `fs_create()` first. Those functions can help me to test the correctness of other functions.
+- Next, I try to implement `fs_resize()`, `fs_delete()` and `fs_defrag()`. All of those functions are related to superblock a lot. So I can print the information of superblock to stdout, and It will be very clear if I get something wrong on my superblock. In this process, I also wrote some testing function `print_list()` and `print_inode()` to visulize my superblock.
 - The remaining parts are easier. I did some simple unit test to test remaining functions.
 - After I finish all of functions, I wrote a script to run all of the test cases provided by TAs. (Script is located in my Makefile.)
 - After I passed all of test cases, I go to read description and rubric again, making sure that I did not miss something. 
+
+
 
 ### Design Choices
 - I used a unordered_map (called folder) to describe the structure of my file system. The map is a mapping between uint8_t and vector<uint8_t>. The key is the ID(in uint8_t) of the parent directory. The value is a list of ID(in uint8_t) of files and/or directories. Using this data structure, it is much easier to implement fs_ls(), fs_cd() and check_same_name()
